@@ -1,0 +1,9 @@
+
+# Build results #
+target/
+
+# Temporary files and folder #
+tmp/
+
+# IDE specific #
+.idea/
