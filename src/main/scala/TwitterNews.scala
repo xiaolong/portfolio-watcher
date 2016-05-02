@@ -29,13 +29,49 @@ object TwitterNews {
     val filter_strings = List("Apple", "Yahoo", "Google", "Facebook")
 
     val tstream = TwitterUtils.createStream(ssc, None, filter_strings)
-
     val en_stream = tstream.filter(_.getUser.getLang == "en")
 
-    val statuses = en_stream.map(status=>(status.getUser.getName+ " : " + status.getText))
-    statuses.print()
+    val statuses = en_stream.map(status=>status.getUser.getName+ " : " + status.getText).
+      filter(status=>filter_strings.exists(status.contains(_)))
+
+    //statuses.print()
 
     //statuses.saveAsTextFiles("file:///Users/xcheng/Downloads/testoutput", "txt");
+    //statuses.saveAsHadoopFiles("hdfs://HadoopSystem-150s:8020/Spark_Twitter_out","txt");
+
+
+    statuses.foreachRDD{
+      rdd=> rdd.foreachPartition{
+
+        partitionOfRecords =>
+
+          // create connection here
+          import java.sql.{Connection, DriverManager, ResultSet};
+          //val driver = "org.postgresql.Driver"
+          //Class.forName(driver) //load driver
+
+          val conn = DriverManager.getConnection("jdbc:postgresql://localhost:5432/xcheng", "xcheng", "")
+          val statement = conn.createStatement()
+
+          try {
+            partitionOfRecords.foreach {
+              s => {
+                println(s + "\n")
+
+                val prep = conn.prepareStatement("INSERT INTO test.tweets (content) VALUES (?) ")
+
+                prep.setString(1, s)
+                prep.executeUpdate
+              }
+
+            }
+          }
+          finally {
+            conn.close()
+          }
+
+      }
+    }
 
     ssc.start()
     ssc.awaitTermination()
